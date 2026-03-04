@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SecureBank — Login</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: 'IBM Plex Sans', sans-serif;
+    background: #0d1117;
+    color: #e6edf3;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* ===== LOGIN PAGE ===== */
+  #login-page {
+    width: 100%;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(ellipse at 60% 40%, #1a2744 0%, #0d1117 70%);
+  }
+  .login-box {
+    width: 400px;
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    padding: 40px 36px;
+    box-shadow: 0 8px 48px rgba(0,0,0,0.5);
+  }
+  .logo { text-align:center; margin-bottom:28px; }
+  .logo-icon { font-size:32px; display:block; margin-bottom:8px; }
+  .logo h1 { font-size:20px; font-weight:600; color:#f0f6fc; }
+  .logo p { font-size:12px; color:#7d8590; margin-top:4px; }
+
+  .field { margin-bottom:16px; }
+  label { display:block; font-size:13px; font-weight:600; color:#e6edf3; margin-bottom:6px; }
+  input {
+    width:100%; background:#0d1117; border:1px solid #30363d; border-radius:6px;
+    color:#e6edf3; font-family:'IBM Plex Mono',monospace; font-size:14px;
+    padding:9px 12px; outline:none; transition:border-color 0.2s;
+  }
+  input:focus { border-color:#388bfd; box-shadow:0 0 0 3px rgba(56,139,253,0.15); }
+  .hint { font-size:11px; color:#7d8590; margin-top:4px; font-family:'IBM Plex Mono',monospace; }
+
+  .btn-login {
+    width:100%; padding:10px; margin-top:8px;
+    background:#238636; border:1px solid #2ea043; border-radius:6px;
+    color:#fff; font-size:14px; font-weight:600; cursor:pointer; transition:background 0.2s;
+    font-family:'IBM Plex Sans',sans-serif;
+  }
+  .btn-login:hover { background:#2ea043; }
+  .btn-login:disabled { opacity:0.5; cursor:not-allowed; }
+
+  .error-msg {
+    background:rgba(248,81,73,0.1); border:1px solid rgba(248,81,73,0.4);
+    border-radius:6px; color:#f85149; font-size:12px;
+    padding:10px 12px; margin-top:14px; display:none;
+  }
+  .error-msg.show { display:block; }
+
+  .divider { border:none; border-top:1px solid #21262d; margin:24px 0 16px; }
+
+  .sql-hint {
+    background:#1c2128; border:1px solid #30363d; border-radius:6px;
+    padding:12px 14px; font-family:'IBM Plex Mono',monospace;
+    font-size:11px; color:#7d8590; line-height:1.7;
+  }
+  .sql-hint strong { color:#e6ac55; }
+  .sql-hint .payload { color:#79c0ff; }
+
+  /* ===== DASHBOARD ===== */
+  #dashboard-page { display:none; width:100%; min-height:100vh; background:#0d1117; flex-direction:column; }
+  #dashboard-page.show { display:flex; }
+
+  .injected-banner {
+    background:rgba(255,159,10,0.1); border-bottom:1px solid rgba(255,159,10,0.3);
+    padding:10px 24px; font-size:12px; color:#e3b341;
+    display:none; align-items:center; gap:8px;
+  }
+  .injected-banner.show { display:flex; }
+
+  .topbar {
+    background:#161b22; border-bottom:1px solid #21262d;
+    padding:0 24px; height:56px; display:flex; align-items:center; justify-content:space-between;
+  }
+  .topbar-logo { font-weight:600; font-size:16px; color:#f0f6fc; }
+  .topbar-right { display:flex; align-items:center; gap:16px; }
+  .avatar {
+    width:32px; height:32px; border-radius:50%;
+    background:linear-gradient(135deg,#388bfd,#bc8cff);
+    display:flex; align-items:center; justify-content:center;
+    font-size:13px; font-weight:600;
+  }
+  .btn-logout {
+    background:none; border:1px solid #30363d; border-radius:6px;
+    color:#7d8590; font-size:12px; padding:5px 12px; cursor:pointer;
+    font-family:'IBM Plex Sans',sans-serif;
+  }
+  .btn-logout:hover { border-color:#f85149; color:#f85149; }
+
+  .dash-main { flex:1; padding:32px 24px; max-width:960px; margin:0 auto; width:100%; }
+  .dash-greeting { margin-bottom:28px; }
+  .dash-greeting h2 { font-size:22px; font-weight:600; color:#f0f6fc; }
+  .dash-greeting p { font-size:13px; color:#7d8590; margin-top:4px; }
+
+  .cards { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-bottom:28px; }
+  @media(max-width:600px){ .cards{ grid-template-columns:1fr; } }
+  .card { background:#161b22; border:1px solid #21262d; border-radius:8px; padding:20px; }
+  .card-label { font-size:12px; color:#7d8590; margin-bottom:8px; }
+  .card-value { font-size:26px; font-weight:600; font-family:'IBM Plex Mono',monospace; }
+  .card-value.green { color:#3fb950; }
+  .card-value.blue  { color:#388bfd; }
+  .card-value.purple{ color:#bc8cff; }
+
+  .section-title { font-size:14px; font-weight:600; color:#f0f6fc; margin-bottom:12px; }
+  .table-wrap { background:#161b22; border:1px solid #21262d; border-radius:8px; overflow:hidden; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th {
+    background:#1c2128; color:#7d8590; font-size:11px; font-weight:600;
+    text-transform:uppercase; letter-spacing:0.5px; padding:10px 16px;
+    text-align:left; border-bottom:1px solid #21262d;
+  }
+  td { padding:12px 16px; border-bottom:1px solid #21262d; color:#e6edf3; }
+  tr:last-child td { border-bottom:none; }
+  tr:hover td { background:rgba(177,186,196,0.04); }
+  .amt-pos { color:#3fb950; }
+  .amt-neg { color:#f85149; }
+
+  .query-reveal {
+    background:#1c2128; border:1px solid #30363d; border-radius:8px;
+    padding:16px 20px; margin-top:24px; display:none;
+    font-family:'IBM Plex Mono',monospace; font-size:12px; line-height:1.8; color:#7d8590;
+  }
+  .query-reveal.show { display:block; }
+  .query-reveal .qlabel { font-size:11px; color:#bc8cff; margin-bottom:8px; text-transform:uppercase; letter-spacing:1px; }
+  .query-reveal .kw { color:#ff7b72; }
+  .query-reveal .injected-part { color:#e3b341; background:rgba(227,179,65,0.1); padding:0 2px; border-radius:2px; }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-page">
+  <div class="login-box">
+    <div class="logo">
+      <span class="logo-icon">🏦</span>
+      <h1>SecureBank</h1>
+      <p>Online Banking Portal</p>
+    </div>
+
+    <div class="field">
+      <label>Username</label>
+      <input type="text" id="username" placeholder="Enter username" autocomplete="off">
+    </div>
+    <div class="field">
+      <label>Password</label>
+      <input type="password" id="password" placeholder="Enter password">
+      <div class="hint">Try injecting instead of guessing 😉</div>
+    </div>
+
+    <button class="btn-login" id="login-btn" onclick="doLogin()">Sign in</button>
+    <div class="error-msg" id="error-msg">Invalid username or password.</div>
+
+    <hr class="divider">
+
+    <div class="sql-hint">
+      <strong>// SQL Injection Hint</strong><br>
+      Backend query:<br>
+      <span style="color:#a5d6ff">SELECT</span> * <span style="color:#a5d6ff">FROM</span> users<br>
+      <span style="color:#a5d6ff">WHERE</span> username='<strong>INPUT</strong>'<br>
+      <span style="color:#a5d6ff">AND</span> password='<strong>INPUT</strong>'<br><br>
+      Try username: <span class="payload">admin' --</span><br>
+      Password: <span class="payload">anything</span>
+    </div>
+  </div>
+</div>
+
+<!-- DASHBOARD -->
+<div id="dashboard-page">
+  <div class="injected-banner" id="injected-banner">
+    ⚠ &nbsp;<strong>SQL INJECTION DETECTED:</strong>&nbsp; Authentication bypassed — no valid credentials were used.
+  </div>
+
+  <div class="topbar">
+    <span class="topbar-logo">🏦 SecureBank</span>
+    <div class="topbar-right">
+      <div class="avatar" id="avatar-initials">?</div>
+      <span id="topbar-username">user</span>
+      <button class="btn-logout" onclick="doLogout()">Sign out</button>
+    </div>
+  </div>
+
+  <div class="dash-main">
+    <div class="dash-greeting">
+      <h2 id="greeting-text">Welcome back</h2>
+      <p id="greeting-sub">Here is your account overview</p>
+    </div>
+
+    <div class="cards">
+      <div class="card"><div class="card-label">Total Balance</div><div class="card-value green">$84,320.00</div></div>
+      <div class="card"><div class="card-label">Transactions</div><div class="card-value blue">47</div></div>
+      <div class="card"><div class="card-label">Active Accounts</div><div class="card-value purple">3</div></div>
+    </div>
+
+    <div class="section-title">Recent Transactions</div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Date</th><th>Description</th><th>Account</th><th>Amount</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>2024-03-01</td><td>Salary Deposit</td><td>Checking •• 4821</td><td class="amt-pos">+$5,200.00</td></tr>
+          <tr><td>2024-02-28</td><td>Rent Payment</td><td>Checking •• 4821</td><td class="amt-neg">-$1,800.00</td></tr>
+          <tr><td>2024-02-25</td><td>Grocery Store</td><td>Savings •• 9302</td><td class="amt-neg">-$234.50</td></tr>
+          <tr><td>2024-02-20</td><td>Freelance Invoice</td><td>Checking •• 4821</td><td class="amt-pos">+$1,500.00</td></tr>
+          <tr><td>2024-02-18</td><td>Electric Bill</td><td>Checking •• 4821</td><td class="amt-neg">-$92.00</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="query-reveal" id="query-reveal">
+      <div class="qlabel">// Executed SQL Query on the server</div>
+      <div id="query-text"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  async function doLogin() {
+    const username = document.getElementById("username").value.trim();
+    const password = document.getElementById("password").value;
+    const err = document.getElementById("error-msg");
+    const btn = document.getElementById("login-btn");
+
+    if (!username) { showError("Please enter a username."); return; }
+
+    btn.disabled = true;
+    btn.textContent = "Signing in...";
+    err.classList.remove("show");
+
+    try {
+      const res = await fetch("/api/login/vulnerable", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password })
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        // Check if it was a bypass (returned user != what we typed, or injection chars present)
+        const injected = /['"\-#;]/.test(username) || data.user !== username;
+        showDashboard(data.user, injected, data.query);
+      } else {
+        showError(data.error ? "DB Error: " + data.error : "Invalid username or password.");
+      }
+    } catch (e) {
+      showError("Cannot reach server. Is server.js running on localhost:3000?");
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Sign in";
+    }
+  }
+
+  function showError(msg) {
+    const err = document.getElementById("error-msg");
+    err.textContent = "❌ " + msg;
+    err.classList.add("show");
+  }
+
+  function showDashboard(username, injected, query) {
+    document.getElementById("login-page").style.display = "none";
+    document.getElementById("dashboard-page").classList.add("show");
+    document.getElementById("topbar-username").textContent = username;
+    document.getElementById("avatar-initials").textContent = username[0].toUpperCase();
+    document.getElementById("greeting-text").textContent = "Welcome back, " + username;
+
+    if (injected) {
+      document.getElementById("injected-banner").classList.add("show");
+      document.getElementById("greeting-sub").textContent = "Access granted via SQL injection — no password was verified.";
+
+      const qr = document.getElementById("query-reveal");
+      qr.classList.add("show");
+
+      const safe = s => String(s).replace(/</g,"&lt;").replace(/>/g,"&gt;");
+      document.getElementById("query-text").innerHTML =
+        "<span class='kw'>SELECT</span> * <span class='kw'>FROM</span> users <span class='kw'>WHERE</span> username='<span class='injected-part'>" +
+        safe(document.getElementById("username").value) +
+        "</span>' <span style='color:#7d8590;text-decoration:line-through'><span class='kw'>AND</span> password=...</span><br>" +
+        "<span style='color:#7d8590;font-size:11px'>-- everything after -- is commented out. Password check never ran.</span>";
+    } else {
+      document.getElementById("greeting-sub").textContent = "Here is your account overview";
+    }
+  }
+
+  function doLogout() {
+    document.getElementById("login-page").style.display = "flex";
+    document.getElementById("dashboard-page").classList.remove("show");
+    document.getElementById("injected-banner").classList.remove("show");
+    document.getElementById("query-reveal").classList.remove("show");
+    document.getElementById("error-msg").classList.remove("show");
+    document.getElementById("username").value = "";
+    document.getElementById("password").value = "";
+  }
+
+  document.addEventListener("keydown", e => { if (e.key === "Enter") doLogin(); });
+</script>
+</body>
+</html>

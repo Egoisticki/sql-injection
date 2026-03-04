@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SQL Injection — Educational Demo</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --green: #00ff88;
+    --green-dim: #00cc6a;
+    --green-faint: rgba(0,255,136,0.08);
+    --red: #ff3355;
+    --yellow: #ffd700;
+    --bg: #050a07;
+    --panel: #080f0a;
+    --border: rgba(0,255,136,0.18);
+    --text: #b0f0c8;
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Share Tech Mono', monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* === GRID BACKGROUND === */
+  body::before {
+    content:'';
+    position:fixed; inset:0; z-index:0;
+    background-image:
+      linear-gradient(rgba(0,255,136,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,255,136,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events:none;
+  }
+
+  /* === SCANLINES === */
+  body::after {
+    content:'';
+    position:fixed; inset:0; z-index:1;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.15) 2px,
+      rgba(0,0,0,0.15) 4px
+    );
+    pointer-events:none;
+  }
+
+  .container { position:relative; z-index:2; max-width:960px; margin:0 auto; padding:40px 20px 80px; }
+
+  /* === HEADER === */
+  header { text-align:center; margin-bottom:48px; }
+
+  .badge {
+    display:inline-block;
+    background: rgba(255,51,85,0.15);
+    border: 1px solid var(--red);
+    color: var(--red);
+    font-size:11px;
+    letter-spacing:3px;
+    padding:5px 14px;
+    margin-bottom:16px;
+    text-transform:uppercase;
+    animation: pulse-border 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse-border {
+    0%,100% { box-shadow: 0 0 0 0 rgba(255,51,85,0.3); }
+    50% { box-shadow: 0 0 0 6px rgba(255,51,85,0); }
+  }
+
+  h1 {
+    font-family: 'Orbitron', monospace;
+    font-size: clamp(28px,5vw,52px);
+    font-weight: 900;
+    color: var(--green);
+    text-shadow: 0 0 40px rgba(0,255,136,0.5), 0 0 80px rgba(0,255,136,0.2);
+    letter-spacing: 4px;
+    line-height: 1.1;
+  }
+
+  .subtitle {
+    margin-top:12px;
+    color: rgba(176,240,200,0.5);
+    font-size:13px;
+    letter-spacing:2px;
+  }
+
+  /* === DISCLAIMER === */
+  .disclaimer {
+    border: 1px solid rgba(255,215,0,0.3);
+    background: rgba(255,215,0,0.05);
+    padding: 14px 20px;
+    margin-bottom: 40px;
+    font-size:12px;
+    color: var(--yellow);
+    line-height:1.7;
+    position:relative;
+  }
+  .disclaimer::before {
+    content: '⚠ EDUCATIONAL PURPOSE ONLY';
+    display:block;
+    font-weight:bold;
+    letter-spacing:2px;
+    margin-bottom:6px;
+  }
+
+  /* === LAYOUT === */
+  .demo-grid {
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+    gap:24px;
+    margin-bottom:40px;
+  }
+  @media(max-width:680px){ .demo-grid { grid-template-columns:1fr; } }
+
+  /* === PANEL === */
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    padding: 28px;
+    position:relative;
+    transition: border-color 0.3s;
+  }
+  .panel:hover { border-color: rgba(0,255,136,0.35); }
+
+  .panel-label {
+    position:absolute;
+    top:-1px; left:20px;
+    background: var(--panel);
+    padding: 0 10px;
+    font-size:10px;
+    letter-spacing:3px;
+    text-transform:uppercase;
+  }
+  .vulnerable .panel-label { color: var(--red); border-top: 2px solid var(--red); }
+  .secure .panel-label { color: var(--green); border-top: 2px solid var(--green); }
+
+  .panel h2 {
+    font-family:'Orbitron', monospace;
+    font-size:14px;
+    margin-bottom:6px;
+    margin-top:8px;
+  }
+  .vulnerable h2 { color: var(--red); }
+  .secure h2 { color: var(--green); }
+
+  .panel p.desc {
+    font-size:11px;
+    color: rgba(176,240,200,0.45);
+    margin-bottom:20px;
+    line-height:1.6;
+  }
+
+  /* === FORM === */
+  .field { margin-bottom:16px; }
+  label { display:block; font-size:11px; letter-spacing:2px; margin-bottom:6px; color: rgba(176,240,200,0.6); }
+
+  input[type=text], input[type=password] {
+    width:100%;
+    background: rgba(0,255,136,0.04);
+    border: 1px solid rgba(0,255,136,0.2);
+    color: var(--green);
+    font-family:'Share Tech Mono',monospace;
+    font-size:14px;
+    padding:10px 14px;
+    outline:none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  input:focus {
+    border-color: var(--green);
+    box-shadow: 0 0 12px rgba(0,255,136,0.15);
+  }
+
+  .btn {
+    width:100%;
+    padding:12px;
+    font-family:'Orbitron',monospace;
+    font-size:12px;
+    letter-spacing:3px;
+    cursor:pointer;
+    border:none;
+    transition: all 0.2s;
+    text-transform:uppercase;
+  }
+  .btn-vuln {
+    background: rgba(255,51,85,0.12);
+    border: 1px solid var(--red);
+    color: var(--red);
+  }
+  .btn-vuln:hover { background: rgba(255,51,85,0.25); box-shadow: 0 0 20px rgba(255,51,85,0.3); }
+
+  .btn-secure {
+    background: rgba(0,255,136,0.08);
+    border: 1px solid var(--green);
+    color: var(--green);
+  }
+  .btn-secure:hover { background: rgba(0,255,136,0.18); box-shadow: 0 0 20px rgba(0,255,136,0.2); }
+
+  /* === QUERY PREVIEW === */
+  .query-box {
+    margin-top:16px;
+    background: #020804;
+    border: 1px solid rgba(0,255,136,0.1);
+    padding:12px;
+    font-size:11px;
+    line-height:1.7;
+    color: rgba(176,240,200,0.5);
+    word-break:break-all;
+    min-height:56px;
+  }
+  .query-box .inject { color: var(--red); font-weight:bold; }
+  .query-box .safe { color: var(--green); }
+  .query-box .placeholder { color: var(--yellow); }
+
+  /* === RESULT TERMINAL === */
+  .result {
+    margin-top:14px;
+    padding:12px 16px;
+    font-size:12px;
+    border-left:3px solid;
+    min-height:44px;
+    line-height:1.7;
+    display:none;
+  }
+  .result.show { display:block; animation: fadeIn 0.3s ease; }
+  .result.success { border-color: var(--green); background: rgba(0,255,136,0.06); color: var(--green); }
+  .result.fail    { border-color: var(--red);   background: rgba(255,51,85,0.06);   color: var(--red); }
+  .result.bypass  { border-color: var(--yellow); background: rgba(255,215,0,0.06); color: var(--yellow); }
+
+  @keyframes fadeIn { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:translateY(0)} }
+
+  /* === LANDING PAGE MOCKUP === */
+  .mockup {
+    border: 1px solid var(--border);
+    background: var(--panel);
+    overflow:hidden;
+    margin-top:0;
+    display:none;
+    animation: fadeIn 0.5s ease;
+  }
+  .mockup.show { display:block; }
+
+  .mockup-topbar {
+    background: rgba(0,255,136,0.08);
+    border-bottom: 1px solid var(--border);
+    padding:10px 16px;
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  .dot { width:10px;height:10px;border-radius:50%; }
+  .dot-r{background:#ff5f56;} .dot-y{background:#ffbd2e;} .dot-g{background:#27c93f;}
+  .mockup-url {
+    flex:1; background: rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.1);
+    padding:3px 10px; font-size:11px; color:rgba(255,255,255,0.4);
+    margin:0 10px;
+  }
+
+  .mockup-body { padding:32px; }
+
+  .mockup-body.vuln-dash {
+    background: linear-gradient(135deg, #0a0f0a 0%, #050a07 100%);
+  }
+  .mockup-body.secure-dash {
+    background: linear-gradient(135deg, #0a0f0a 0%, #050a07 100%);
+  }
+
+  .dash-header {
+    display:flex; justify-content:space-between; align-items:center;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 16px; margin-bottom:24px;
+  }
+  .dash-title { font-family:'Orbitron',monospace; font-size:16px; color:var(--green); }
+  .dash-user { font-size:11px; color:rgba(176,240,200,0.5); }
+  .dash-user span { color:var(--yellow); }
+
+  .dash-cards { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-bottom:20px; }
+  .dash-card {
+    background: rgba(0,255,136,0.04);
+    border:1px solid var(--border);
+    padding:16px;
+    text-align:center;
+  }
+  .dash-card .num { font-family:'Orbitron',monospace; font-size:22px; color:var(--green); }
+  .dash-card .lbl { font-size:10px; color:rgba(176,240,200,0.4); margin-top:4px; letter-spacing:1px; }
+
+  .dash-table { width:100%; border-collapse:collapse; font-size:11px; }
+  .dash-table th { color:rgba(176,240,200,0.4); text-align:left; padding:8px 10px; border-bottom:1px solid var(--border); letter-spacing:1px; }
+  .dash-table td { padding:8px 10px; border-bottom:1px solid rgba(0,255,136,0.05); color:rgba(176,240,200,0.7); }
+
+  .warn-banner {
+    background: rgba(255,51,85,0.1);
+    border:1px solid rgba(255,51,85,0.4);
+    color:var(--red);
+    padding:10px 16px;
+    font-size:11px;
+    margin-bottom:16px;
+    letter-spacing:1px;
+  }
+
+  /* === CODE EXPLAIN SECTION === */
+  .explain { margin-top:40px; }
+  .explain h2 {
+    font-family:'Orbitron',monospace;
+    font-size:16px;
+    color:var(--green);
+    margin-bottom:20px;
+    letter-spacing:2px;
+    border-bottom:1px solid var(--border);
+    padding-bottom:12px;
+  }
+
+  .steps { display:grid; grid-template-columns:1fr; gap:16px; }
+
+  .step {
+    border:1px solid var(--border);
+    background:var(--panel);
+    padding:20px 24px;
+    display:grid;
+    grid-template-columns: 48px 1fr;
+    gap:16px;
+    align-items:start;
+  }
+
+  .step-num {
+    font-family:'Orbitron',monospace;
+    font-size:24px;
+    color:var(--green);
+    opacity:0.3;
+    line-height:1;
+  }
+
+  .step h3 { font-size:13px; color:var(--green); margin-bottom:8px; letter-spacing:1px; }
+  .step p { font-size:12px; color:rgba(176,240,200,0.55); line-height:1.7; }
+
+  code {
+    background: rgba(0,255,136,0.08);
+    color: var(--yellow);
+    padding:1px 6px;
+    font-family:'Share Tech Mono',monospace;
+    font-size:12px;
+  }
+
+  .code-block {
+    background:#020804;
+    border:1px solid rgba(0,255,136,0.12);
+    padding:16px;
+    margin-top:10px;
+    font-size:12px;
+    line-height:1.8;
+    overflow-x:auto;
+  }
+  .code-block .kw { color:#66d9e8; }
+  .code-block .str { color:#a9dc76; }
+  .code-block .cm { color:rgba(176,240,200,0.3); }
+  .code-block .hl { color:var(--red); font-weight:bold; }
+  .code-block .good { color:var(--green); }
+
+  /* === PAYLOAD CHEATSHEET === */
+  .payloads { margin-top:40px; }
+  .payloads h2 {
+    font-family:'Orbitron',monospace; font-size:16px; color:var(--red);
+    margin-bottom:20px; letter-spacing:2px;
+    border-bottom:1px solid rgba(255,51,85,0.3); padding-bottom:12px;
+  }
+
+  .payload-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  @media(max-width:600px){ .payload-grid{grid-template-columns:1fr;} }
+
+  .payload-card {
+    border:1px solid rgba(255,51,85,0.2);
+    background:rgba(255,51,85,0.03);
+    padding:16px;
+  }
+  .payload-card h4 { font-size:11px; color:var(--red); letter-spacing:2px; margin-bottom:8px; text-transform:uppercase; }
+  .payload-card code { color:var(--red); display:block; margin-bottom:4px; }
+  .payload-card p { font-size:11px; color:rgba(176,240,200,0.4); line-height:1.5; margin-top:6px; }
+
+  /* TRY IT button */
+  .try-it {
+    font-size:10px; letter-spacing:1px;
+    color:var(--yellow);
+    cursor:pointer;
+    background:none;
+    border:1px solid rgba(255,215,0,0.3);
+    padding:2px 8px;
+    font-family:'Share Tech Mono',monospace;
+    margin-top:6px;
+  }
+  .try-it:hover { background:rgba(255,215,0,0.08); }
+
+  /* cursor blink */
+  .cursor::after { content:'█'; animation:blink 1s step-end infinite; color:var(--green); }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+  /* Typed text animation */
+  .type-anim { overflow:hidden; white-space:nowrap; animation: typing 1.2s steps(30,end) forwards; }
+  @keyframes typing { from{width:0} to{width:100%} }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- HEADER -->
+  <header>
+    <div class="badge">⚡ Security Research Lab</div>
+    <h1>SQL INJECTION<br>DEMO</h1>
+    <p class="subtitle">// understanding the attack to build better defenses</p>
+  </header>
+
+  <!-- DISCLAIMER -->
+  <div class="disclaimer">
+    This page is a fully client-side simulation for educational purposes. No real database is queried.
+    SQL Injection is illegal against systems you do not own. Use this knowledge to write safer code and protect your applications.
+    The database credentials shown are for illustration only.
+  </div>
+
+  <!-- DUAL LOGIN PANELS -->
+  <div class="demo-grid">
+
+    <!-- VULNERABLE -->
+    <div class="panel vulnerable">
+      <div class="panel-label">vulnerable</div>
+      <h2>☠ INSECURE LOGIN</h2>
+      <p class="desc">Direct string concatenation into SQL query. Try the injection payloads below.</p>
+
+      <div class="field">
+        <label>USERNAME</label>
+        <input type="text" id="v-user" placeholder="admin" oninput="updateVulnQuery()">
+      </div>
+      <div class="field">
+        <label>PASSWORD</label>
+        <input type="text" id="v-pass" placeholder="anything" oninput="updateVulnQuery()">
+      </div>
+
+      <div class="query-box" id="vuln-query">
+        <span style="color:rgba(176,240,200,0.3)">// generated SQL query will appear here...</span>
+      </div>
+
+      <br>
+      <button class="btn btn-vuln" onclick="tryVulnLogin()">▶ EXECUTE LOGIN</button>
+      <div class="result" id="vuln-result"></div>
+    </div>
+
+    <!-- SECURE -->
+    <div class="panel secure">
+      <div class="panel-label">secure</div>
+      <h2>✓ SECURE LOGIN</h2>
+      <p class="desc">Parameterized query with prepared statements. Same payloads — safely handled.</p>
+
+      <div class="field">
+        <label>USERNAME</label>
+        <input type="text" id="s-user" placeholder="admin" oninput="updateSecureQuery()">
+      </div>
+      <div class="field">
+        <label>PASSWORD</label>
+        <input type="text" id="s-pass" placeholder="anything" oninput="updateSecureQuery()">
+      </div>
+
+      <div class="query-box" id="secure-query">
+        <span style="color:rgba(176,240,200,0.3)">// generated SQL query will appear here...</span>
+      </div>
+
+      <br>
+      <button class="btn btn-secure" onclick="trySecureLogin()">▶ EXECUTE LOGIN</button>
+      <div class="result" id="secure-result"></div>
+    </div>
+
+  </div>
+
+  <!-- RESULTS MOCKUP PANELS -->
+  <div class="demo-grid">
+    <div class="mockup" id="vuln-mockup">
+      <div class="mockup-topbar">
+        <div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div>
+        <div class="mockup-url">http://bank-app.internal/dashboard</div>
+      </div>
+      <div class="mockup-body vuln-dash" id="vuln-dash-body">
+      </div>
+    </div>
+
+    <div class="mockup" id="secure-mockup">
+      <div class="mockup-topbar">
+        <div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div>
+        <div class="mockup-url">https://secure-bank.io/dashboard</div>
+      </div>
+      <div class="mockup-body secure-dash" id="secure-dash-body">
+      </div>
+    </div>
+  </div>
+
+  <!-- PAYLOAD CHEATSHEET -->
+  <div class="payloads">
+    <h2>☠ ATTACK PAYLOADS — try these in the vulnerable form</h2>
+    <div class="payload-grid">
+
+      <div class="payload-card">
+        <h4>Classic Bypass</h4>
+        <code id="p1">admin' --</code>
+        <p>Closes the string early, comments out the rest of the query including the password check.</p>
+        <button class="try-it" onclick="fillVuln("admin' --","x")">↗ TRY IT</button>
+      </div>
+
+      <div class="payload-card">
+        <h4>OR-based Bypass</h4>
+        <code id="p2">' OR '1'='1</code>
+        <p>Injects a condition that always evaluates to TRUE, bypassing credential validation entirely.</p>
+        <button class="try-it" onclick="fillVuln(\"' OR '1'='1\",\"' OR '1'='1\")">↗ TRY IT</button>
+      </div>
+
+      <div class="payload-card">
+        <h4>Admin Comment Bypass</h4>
+        <code id="p3">admin'/*</code>
+        <p>Uses block comment syntax to nullify the rest of the query in MySQL and PostgreSQL.</p>
+        <button class="try-it" onclick="fillVuln(\"admin'/*\",\"anything\")">↗ TRY IT</button>
+      </div>
+
+      <div class="payload-card">
+        <h4>Tautology + Union</h4>
+        <code id="p4">' OR 1=1--</code>
+        <p>A cleaner tautology injection; works across most SQL databases regardless of whitespace handling.</p>
+        <button class="try-it" onclick="fillVuln(\"' OR 1=1--\",\"x\")">↗ TRY IT</button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- HOW IT WORKS -->
+  <div class="explain">
+    <h2>// HOW IT WORKS</h2>
+    <div class="steps">
+
+      <div class="step">
+        <div class="step-num">01</div>
+        <div>
+          <h3>THE VULNERABLE QUERY</h3>
+          <p>The server builds the SQL string by directly pasting user input in. An attacker controls part of the query's <em>structure</em>, not just its <em>data</em>.</p>
+          <div class="code-block">
+<span class="kw">// ❌ VULNERABLE — never do this</span><br>
+<span class="kw">const</span> query = <span class="str">"SELECT * FROM users WHERE username='"</span><br>
+&nbsp;&nbsp;+ <span class="hl">req.body.username</span>   <span class="cm">// ← attacker controls this</span><br>
+&nbsp;&nbsp;+ <span class="str">"' AND password='"</span><br>
+&nbsp;&nbsp;+ <span class="hl">req.body.password</span><br>
+&nbsp;&nbsp;+ <span class="str">"'"</span>;<br>
+<span class="kw">db</span>.query(query);<br><br>
+
+<span class="cm">// Input:  admin' --</span><br>
+<span class="cm">// Result: SELECT * FROM users WHERE username='admin'--' AND password='x'</span><br>
+<span class="cm">//         ↑ password check completely bypassed!</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">02</div>
+        <div>
+          <h3>THE INJECTION MECHANISM</h3>
+          <p>The single quote <code>'</code> terminates the string literal in SQL. <code>--</code> starts a comment, ignoring everything after. The attacker has rewritten your query.</p>
+          <div class="code-block">
+<span class="cm">-- Original intended query:</span><br>
+SELECT * FROM users WHERE username=<span class="str">'admin'</span> AND password=<span class="str">'secret'</span>;<br><br>
+<span class="cm">-- Injected query:</span><br>
+SELECT * FROM users WHERE username=<span class="str">'admin'</span><span class="hl">--</span><span class="cm">' AND password='x';</span><br>
+<span class="cm">-- ↑ everything after -- is a comment, password ignored</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">03</div>
+        <div>
+          <h3>THE SECURE FIX — PREPARED STATEMENTS</h3>
+          <p>Parameterized queries separate SQL code from data. The database driver handles escaping, so no amount of quotes or special chars can break out of the data slot.</p>
+          <div class="code-block">
+<span class="kw">// ✅ SECURE — parameterized query</span><br>
+<span class="kw">const</span> query = <span class="good">"SELECT * FROM users WHERE username=? AND password=?"</span>;<br>
+<span class="kw">db</span>.query(query, [<span class="good">req.body.username, req.body.password</span>]);<br><br>
+
+<span class="cm">// Input:  admin' --</span><br>
+<span class="cm">// Treated as literal string — no injection possible</span><br>
+<span class="cm">// Result: no rows found → login denied</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">04</div>
+        <div>
+          <h3>REAL DATABASE CONTEXT</h3>
+          <p>For a MySQL connection like <code>mysql://avnadmin:***@host:14290/defaultdb</code>, the Node.js <code>mysql2</code> library makes this easy:</p>
+          <div class="code-block">
+<span class="kw">const</span> mysql = <span class="kw">require</span>(<span class="str">'mysql2/promise'</span>);<br>
+<span class="kw">const</span> conn = <span class="kw">await</span> mysql.createConnection({<br>
+&nbsp;&nbsp;host: <span class="str">'mysql-xxxx.aivencloud.com'</span>,<br>
+&nbsp;&nbsp;user: <span class="str">'avnadmin'</span>, password: <span class="str">'***'</span>,<br>
+&nbsp;&nbsp;database: <span class="str">'defaultdb'</span>, ssl: { rejectUnauthorized: <span class="good">true</span> }<br>
+});<br><br>
+<span class="cm">// ✅ ALWAYS use placeholders:</span><br>
+<span class="kw">const</span> [rows] = <span class="kw">await</span> conn.execute(<br>
+&nbsp;&nbsp;<span class="good">"SELECT id FROM users WHERE username=? AND password_hash=?"</span>,<br>
+&nbsp;&nbsp;[username, passwordHash]<br>
+);
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div><!-- /container -->
+
+<script>
+// === SIMULATED USER DATABASE ===
+const DB = [
+  { username: 'admin',    password: 'supersecret123' },
+  { username: 'alice',    password: 'alice2024' },
+  { username: 'bob',      password: 'hunter2' },
+];
+
+function escapeHTML(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// === QUERY DISPLAY ===
+function updateVulnQuery() {
+  const u = document.getElementById('v-user').value;
+  const p = document.getElementById('v-pass').value;
+  const box = document.getElementById('vuln-query');
+  const eu = escapeHTML(u), ep = escapeHTML(p);
+  box.innerHTML = `<span style="color:#66d9e8">SELECT</span> * <span style="color:#66d9e8">FROM</span> users<br><span style="color:#66d9e8">WHERE</span> username='<span class="inject">${eu}</span>'<br>&nbsp;&nbsp;<span style="color:#66d9e8">AND</span> password='<span class="inject">${ep}</span>'`;
+}
+
+function updateSecureQuery() {
+  const box = document.getElementById('secure-query');
+  box.innerHTML = `<span style="color:#66d9e8">SELECT</span> * <span style="color:#66d9e8">FROM</span> users<br><span style="color:#66d9e8">WHERE</span> username=<span class="safe">?</span><br>&nbsp;&nbsp;<span style="color:#66d9e8">AND</span> password=<span class="safe">?</span><br><span style="color:rgba(176,240,200,0.3)">-- params: [<span class="placeholder">${escapeHTML(document.getElementById('s-user').value)}</span>, <span class="placeholder">***</span>]</span>`;
+}
+
+// === VULNERABLE LOGIN ===
+function tryVulnLogin() {
+  const u = document.getElementById('v-user').value.trim();
+  const p = document.getElementById('v-pass').value.trim();
+  const res = document.getElementById('vuln-result');
+  const mockup = document.getElementById('vuln-mockup');
+
+  // Simulate SQL injection detection
+  const injectionPatterns = [
+    /'\s*--/i, /'\s*\/\*/i, /or\s+['"]?1['"]?\s*=\s*['"]?1/i,
+    /'\s*or\s+/i, /'\s*;/i, /union\s+select/i
+  ];
+  const isInjection = injectionPatterns.some(rx => rx.test(u) || rx.test(p));
+
+  if (isInjection) {
+    // INJECTION BYPASSES AUTH
+    res.className = 'result bypass show';
+    res.innerHTML = `⚠ INJECTION DETECTED — AUTH BYPASSED!<br>✓ Logged in as: <strong>admin</strong> (all records returned)<br><span style="font-size:10px;opacity:0.7">The WHERE clause evaluated to TRUE for all rows</span>`;
+    mockup.classList.add('show');
+    renderVulnDash('admin', true);
+    return;
+  }
+
+  // Normal check
+  const found = DB.find(row => row.username === u && row.password === p);
+  if (found) {
+    res.className = 'result success show';
+    res.innerHTML = `✓ LOGIN SUCCESS — Welcome, ${escapeHTML(found.username)}`;
+    mockup.classList.add('show');
+    renderVulnDash(found.username, false);
+  } else {
+    res.className = 'result fail show';
+    res.innerHTML = `✗ INVALID CREDENTIALS — Login failed`;
+    mockup.classList.remove('show');
+  }
+}
+
+// === SECURE LOGIN ===
+function trySecureLogin() {
+  const u = document.getElementById('s-user').value.trim();
+  const p = document.getElementById('s-pass').value.trim();
+  const res = document.getElementById('secure-result');
+  const mockup = document.getElementById('secure-mockup');
+
+  // Parameterized — injection simply won't work, treat input as literal
+  const found = DB.find(row => row.username === u && row.password === p);
+  if (found) {
+    res.className = 'result success show';
+    res.innerHTML = `✓ LOGIN SUCCESS — Welcome, ${escapeHTML(found.username)}`;
+    mockup.classList.add('show');
+    renderSecureDash(found.username);
+  } else {
+    res.className = 'result fail show';
+    res.innerHTML = `✗ INVALID CREDENTIALS — Login failed<br><span style="font-size:10px;opacity:0.7">Injection payload was treated as a literal string — no bypass possible</span>`;
+    mockup.classList.remove('show');
+  }
+}
+
+function renderVulnDash(user, injected) {
+  const body = document.getElementById('vuln-dash-body');
+  body.innerHTML = `
+    ${injected ? '<div class="warn-banner">⚠ UNAUTHORIZED ACCESS — attacker logged in via SQL injection without valid credentials</div>' : ''}
+    <div class="dash-header">
+      <div class="dash-title">💀 BANKING PORTAL</div>
+      <div class="dash-user">Logged in: <span>${injected ? 'INJECTED SESSION' : escapeHTML(user)}</span></div>
+    </div>
+    <div class="dash-cards">
+      <div class="dash-card"><div class="num">$84,320</div><div class="lbl">Balance</div></div>
+      <div class="dash-card"><div class="num">47</div><div class="lbl">Transactions</div></div>
+      <div class="dash-card"><div class="num">3</div><div class="lbl">Accounts</div></div>
+    </div>
+    <table class="dash-table">
+      <tr><th>DATE</th><th>DESCRIPTION</th><th>AMOUNT</th></tr>
+      <tr><td>2024-03-01</td><td>Salary Deposit</td><td style="color:var(--green)">+$5,200</td></tr>
+      <tr><td>2024-02-28</td><td>Rent Payment</td><td style="color:var(--red)">-$1,800</td></tr>
+      <tr><td>2024-02-25</td><td>Grocery Store</td><td style="color:var(--red)">-$234</td></tr>
+    </table>`;
+}
+
+function renderSecureDash(user) {
+  const body = document.getElementById('secure-dash-body');
+  body.innerHTML = `
+    <div class="dash-header">
+      <div class="dash-title">✓ SECURE PORTAL</div>
+      <div class="dash-user">Logged in: <span>${escapeHTML(user)}</span></div>
+    </div>
+    <div class="dash-cards">
+      <div class="dash-card"><div class="num">$12,450</div><div class="lbl">Balance</div></div>
+      <div class="dash-card"><div class="num">23</div><div class="lbl">Transactions</div></div>
+      <div class="dash-card"><div class="num">1</div><div class="lbl">Accounts</div></div>
+    </div>
+    <table class="dash-table">
+      <tr><th>DATE</th><th>DESCRIPTION</th><th>AMOUNT</th></tr>
+      <tr><td>2024-03-01</td><td>Salary Deposit</td><td style="color:var(--green)">+$3,800</td></tr>
+      <tr><td>2024-02-27</td><td>Utilities</td><td style="color:var(--red)">-$180</td></tr>
+    </table>`;
+}
+
+function fillVuln(u, p) {
+  document.getElementById('v-user').value = u;
+  document.getElementById('v-pass').value = p;
+  updateVulnQuery();
+  document.getElementById('v-user').focus();
+}
+
+// Init query previews
+updateVulnQuery();
+updateSecureQuery();
+</script>
+</body>
+</html>
